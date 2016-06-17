@@ -19,10 +19,14 @@ class HomeController extends Controllers
         $regionals  = $this->data(Regionals::class);
         $provinceId = $request->getQueryParam('province_id');
 
+        /** @var Users $users */
+        $users = $this->data(Users::class);
+
         return $this->view->render('home-index', [
-            'members'   => $this->data(Users::class)->getMembers($request),
-            'provinces' => array_pairs($regionals->getProvinces(), 'id', 'regional_name'),
-            'cities'    => array_pairs($regionals->getCities($provinceId), 'id', 'regional_name'),
+            'members'       => $users->getMembers($request),
+            'totalMember'   => $users->getTotalMember($request),
+            'provinces'     => array_pairs($regionals->getProvinces(), 'id', 'regional_name'),
+            'cities'        => array_pairs($regionals->getCities($provinceId), 'id', 'regional_name'),
         ]);
     }
 
@@ -69,14 +73,6 @@ class HomeController extends Controllers
         if ($user) {
             $_SESSION['MembershipAuth'] = [
                 'user_id'     => $user['user_id'],
-                'username'    => $user['username'],
-                'role_id'     => $user['role_id'],
-                'email'       => $user['email'],
-                'province_id' => $user['province_id'],
-                'city_id'     => $user['city_id'],
-                'photo'       => $user['photo'],
-                'fullname'    => $user['fullname'],
-                'job_id'      => $user['job_id'],
             ];
             $this->session->replace($_SESSION['MembershipAuth']);
 
