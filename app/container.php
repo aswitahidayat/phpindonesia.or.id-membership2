@@ -2,12 +2,13 @@
 
 use Slim\Collection;
 use Slim\Container;
-use Slim\PDO\Database;
 use Slim\Handlers\Error as SlimError;
 use League\Plates\Extension\Asset as PlatesAsset;
 use Psr\Http\Message\UploadedFileInterface;
 use Valitron\Validator;
 use Membership\Models;
+use Membership\Libraries;
+use Membership\Libraries\PDO\Database;
 
 /**
  * Settings file
@@ -130,16 +131,23 @@ Cloudinary::config($container->get('settings')['cloudinary']);
  */
 $container['view'] = function ($container) {
     $settings = $container->get('settings');
-    $request = $container->get('request');
-    $view = new Projek\Slim\Plates($settings['view'], $container->get('response'));
+    $view = new Projek\Slim\Plates(
+        $viewSettings = $settings->get('view'),
+        $container->get('response')
+    );
 
     // Add app view folders
-    $view->addFolder('layouts',  $settings['view']['directory'].'/layouts');
-    $view->addFolder('sections', $settings['view']['directory'].'/sections');
+    $view->addFolder('emails',   $viewSettings['directory'].'/emails');
+    $view->addFolder('layouts',  $viewSettings['directory'].'/layouts');
+    $view->addFolder('sections', $viewSettings['directory'].'/sections');
 
     // Load app view extensions
     $view->loadExtension(new PlatesAsset(WWW_DIR));
-    $view->loadExtension(new Membership\ViewExtension($request, $container->get('flash'), $settings['mode']));
+    $view->loadExtension(new Libraries\ViewExtension(
+        $request = $container->get('request'),
+        $container->get('flash'),
+        $settings->get('mode')
+    ));
     $view->loadExtension(new Projek\Slim\PlatesExtension($container->get('router'), $request->getUri()));
 
     return $view;
@@ -199,24 +207,22 @@ $container['upload'] = function ($container) {
 };
 
 /**
- * Setup mailer container
+ * Setup smtp mailer container
  *
- * TODO: will replaced with PHPMailer
+ * @param \Slim\Container $container
+ * @return \Membership\Libraries\Mailer
  */
 $container['mailer'] = function ($container) {
-    $smtp_account = $container->get('settings')['smtp'];
-    $transport = null;
 
-    if ($smtp_account['ssl']) {
-        $transport = Swift_SmtpTransport::newInstance($smtp_account['host'], $smtp_account['port'], 'ssl');
-    } else {
-        $transport = Swift_SmtpTransport::newInstance($smtp_account['host'], $smtp_account['port']);
-    }
+    $view = $container->get('view')->getPlates();
+    $settings = $container->get('settings');
+    $appSetting = $settings->get('app');
 
-    $transport->setUsername($smtp_account['username']);
-    $transport->setPassword($smtp_account['password']);
+    $mailer = new Libraries\Mailer($settings->get('mailer'), $view);
 
-    $mailer = Swift_Mailer::newInstance($transport);
+    $mailer->debugMode($settings->get('mode'));
+    $mailer->setSender($appSetting['email'], $appSetting['name']);
+
     return $mailer;
 };
 
